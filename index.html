@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>fealms.mp4 — Browser Video Editor</title>
   <link rel="stylesheet" href="src/styles.css">
+  <!-- ffmpeg.wasm UMD build for in-browser transcoding fallback -->
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
 </head>
 <body>
   <div class="app" id="app">
@@ -69,4 +71,3 @@
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
-

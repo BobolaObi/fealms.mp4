@@ -1,18 +1,43 @@
 import { state } from './state.js';
 import { uid } from './utils.js';
+import { maybeTranscodeIfUnsupported } from './transcode.js';
 
 export function initMedia(refs){
   const { mediaList, dropzone, fileInput } = refs;
 
   async function addMediaFiles(files){
     for (const file of files){
-      const url = URL.createObjectURL(file);
-      const type = file.type.startsWith('video') ? 'video' : file.type.startsWith('audio') ? 'audio' : 'image';
+      let workingFile = file;
+      // Try to transcode if the browser likely can't play this format
+      const trans = await maybeTranscodeIfUnsupported(file);
+      let url;
+      if (trans){
+        url = trans.url;
+        workingFile = new File([trans.blob], trans.name, { type: trans.mime });
+      } else {
+        url = URL.createObjectURL(file);
+      }
+      const type = workingFile.type.startsWith('video') ? 'video' : workingFile.type.startsWith('audio') ? 'audio' : 'image';
       let duration = 5;
       if (type === 'video' || type === 'audio'){
-        try{ duration = await probeDuration(url); }catch{ duration = 5; }
+        try{ duration = await probeDuration(url); }
+        catch {
+          // probe failed; attempt transcode now if we didn't already
+          if (!trans) {
+            const t2 = await maybeTranscodeIfUnsupported(file);
+            if (t2){
+              url = t2.url;
+              workingFile = new File([t2.blob], t2.name, { type: t2.mime });
+              try{ duration = await probeDuration(url); }catch{ duration = 5; }
+            } else {
+              duration = 5;
+            }
+          } else {
+            duration = 5;
+          }
+        }
       }
-      const m = {id: uid(), name: file.name, type, url, duration, in:0, out:duration};
+      const m = {id: uid(), name: workingFile.name || file.name, type, url, duration, in:0, out:duration};
       state.media.push(m);
       addMediaCard(m);
     }
@@ -44,4 +69,3 @@ export function initMedia(refs){
 
   return { addMediaFiles };
 }
-
