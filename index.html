@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>fealms.mp4 — Browser Video Editor</title>
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="menubar">
+      <div class="brand">fealms.mp4</div>
+      <button class="menu-btn" id="newBtn">New</button>
+      <button class="menu-btn" id="openBtn">Open…</button>
+      <button class="menu-btn" id="saveBtn">Save</button>
+      <span class="spacer"></span>
+      <span class="chip">Tip: Drag files → Drop on timeline → Space to play</span>
+      <span class="chip">Zoom: <span class="kbd">+</span>/<span class="kbd">−</span></span>
+    </div>
+
+    <aside class="left">
+      <section class="panel" id="panel-project">
+        <div class="project-tools">
+          <label class="btn" for="fileInput">Import…</label>
+          <input id="fileInput" type="file" accept="video/*,audio/*,image/*" multiple />
+          <button class="btn" id="clearMedia">Clear</button>
+        </div>
+        <div class="dropzone" id="dropzone">Drop media here (video, audio, images)</div>
+        <h4>Media</h4>
+        <div class="media-list" id="mediaList"></div>
+      </section>
+    </aside>
+
+    <section class="monitors">
+      <div class="monitor" id="programMon">
+        <header>Viewer</header>
+        <div class="screen">
+          <video id="programVideo" playsinline></video>
+          <audio id="programAudio" style="display:none"></audio>
+        </div>
+        <div class="transport">
+          <button class="icon-btn" id="rew">⏮</button>
+          <button class="icon-btn" id="play">▶</button>
+          <button class="icon-btn" id="stop">⏹</button>
+          <input type="range" id="scrub" min="0" max="300" value="0" step="0.01" style="width:220px" />
+          <span class="timecode" id="programTC">00:00:00:00</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="timeline">
+      <div class="timeline-top">
+        <div class="zoom">Zoom <input type="range" id="zoom" min="20" max="400" value="120" /> <span id="zoomVal"></span> px/s</div>
+        <div class="spacer"></div>
+        <div>Snap <input type="checkbox" id="snap" checked /></div>
+      </div>
+      <div class="ruler-wrap"><canvas id="ruler"></canvas></div>
+      <div class="tracks" id="tracks">
+        <div class="playhead" id="playhead" style="left:0"></div>
+        <div class="track" data-track="V1"><div class="label">V1</div><div class="lane"></div></div>
+        <div class="track" data-track="A1"><div class="label">A1</div><div class="lane"></div></div>
+      </div>
+      <div class="footer">
+        <div>Project FPS: <select id="fps"><option>24</option><option selected>30</option><option>60</option></select></div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
+
