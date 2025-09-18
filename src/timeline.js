@@ -3,7 +3,7 @@ import { clamp, snapTime } from './utils.js';
 
 export function initTimeline(refs, callbacks){
   const { tracksEl, playheadEl, ruler, zoom, zoomVal, snap, fpsSel } = refs;
-  const { onClipsChanged, onSelect, onPlayheadSet, onRedrawRequest } = callbacks;
+  const { onClipsChanged, onSelect, onPlayheadSet, onRedrawRequest, onScrub } = callbacks;
 
   const laneForTrack = (track) => tracksEl.querySelector(`.track[data-track="${track}"] .lane`);
   const secondsToX = (sec) => 54 + sec * state.pxPerSec - tracksEl.scrollLeft;
@@ -11,6 +11,7 @@ export function initTimeline(refs, callbacks){
 
   function renderClips(){
     tracksEl.querySelectorAll('.lane').forEach(l => l.innerHTML='');
+    tracksEl.dataset.empty = state.clips.length === 0 ? '1' : '0';
     for (const c of state.clips){
       const lane = laneForTrack(c.track); if (!lane) continue;
       const el = document.createElement('div');
@@ -42,6 +43,8 @@ export function initTimeline(refs, callbacks){
       el.querySelector('.hR').addEventListener('mousedown', (e)=> startResize(e, c, 'R'));
 
       el.addEventListener('click', ()=> { state.selectedClipId = c.id; onSelect?.(c.id); renderClips(); });
+      // Ensure playhead update when clicking a clip (better feedback)
+      el.addEventListener('dblclick', ()=> { state.playhead = c.start; onPlayheadSet?.(); });
       lane.appendChild(el);
     }
   }
@@ -78,7 +81,11 @@ export function initTimeline(refs, callbacks){
         const rect = lane.getBoundingClientRect();
         const sec = snapTime(state, xToSeconds(e.clientX - rect.left));
         const dur = clamp((m.out - m.in) || (m.duration||5), 0.05, 1e9);
-        const clip = { id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), mediaId:m.id, name:m.name, type:m.type, track: lane.closest('.track').dataset.track, start:sec, dur:dur, in:m.in, out:m.out };
+        // Enforce media type to the correct track: videos/images -> V1, audio -> A1
+        const intendedTrack = (m.type === 'audio') ? 'A1' : 'V1';
+        const droppedTrack = lane.closest('.track').dataset.track;
+        const track = (m.type === 'audio') ? (droppedTrack === 'A1' ? 'A1' : 'A1') : (droppedTrack === 'V1' ? 'V1' : 'V1');
+        const clip = { id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), mediaId:m.id, name:m.name, type:m.type, track, start:sec, dur:dur, in:m.in, out:m.out };
         state.clips.push(clip);
         renderClips();
         state.selectedClipId = clip.id; onSelect?.(clip.id);
@@ -87,13 +94,29 @@ export function initTimeline(refs, callbacks){
     });
   });
 
-  // Playhead reposition (ignore when starting on a clip)
+  // Scrub helpers
+  function setPlayheadFromEvent(e, container){
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left; const t = clamp(xToSeconds(x), 0, 1e9);
+    state.playhead = t;
+  }
+  function startScrub(e, container){
+    setPlayheadFromEvent(e, container); onPlayheadSet?.();
+    const onMove = (ev)=>{ setPlayheadFromEvent(ev, container); onScrub?.(); };
+    const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  // Scrub by dragging on tracks (ignore when starting on a clip)
   tracksEl.addEventListener('mousedown', (e)=>{
     if (e.target.closest('.clip') || e.target.closest('.h')) return;
-    const rect = tracksEl.getBoundingClientRect();
-    const x = e.clientX - rect.left; const t = clamp(xToSeconds(x), 0, 1e9);
-    state.playhead = t; onPlayheadSet?.();
+    startScrub(e, tracksEl);
   });
+
+  // Scrub by dragging on the ruler
+  const rulerWrap = ruler.parentElement;
+  rulerWrap.addEventListener('mousedown', (e)=>{ startScrub(e, tracksEl); });
 
   // Zoom + snap
   function onZoom(){ state.pxPerSec = parseInt(zoom.value); zoomVal.textContent = state.pxPerSec; renderClips(); onRedrawRequest?.(); }
@@ -109,16 +132,16 @@ export function initTimeline(refs, callbacks){
     const ctx = ruler.getContext('2d'); ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
     ctx.clearRect(0,0,w,h);
     ctx.fillStyle = '#0e0e0e'; ctx.fillRect(0,0,w,h);
-    ctx.strokeStyle = '#2a2a2a'; ctx.fillStyle = '#9aa0a6'; ctx.font = '12px system-ui'; ctx.textBaseline='top';
+    ctx.strokeStyle = '#3a3a3a'; ctx.fillStyle = '#c9d0d5'; ctx.font = '13px system-ui'; ctx.textBaseline='top';
     const px = state.pxPerSec; const majorEvery = 1; const minorEvery = 0.25;
     const scrollX = tracksEl.scrollLeft; const startSec = Math.floor(scrollX / px); const endSec = Math.ceil((scrollX + w) / px);
     for (let s = startSec; s <= endSec; s += minorEvery){
-      const x = Math.round(s * px - scrollX)+0.5; const isMajor = Math.abs((s % majorEvery)) < 1e-6; const th = isMajor ? 20 : 10;
+      const x = Math.round(s * px - scrollX)+0.5; const isMajor = Math.abs((s % majorEvery)) < 1e-6; const th = isMajor ? 26 : 14;
       ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - th); ctx.stroke();
       if (isMajor){
         const mm = Math.floor((s%3600)/60).toString().padStart(2,'0');
         const ss = Math.floor(s%60).toString().padStart(2,'0');
-        ctx.fillText(`${mm}:${ss}`, x+4, 2);
+        ctx.fillText(`${mm}:${ss}`, x+6, 4);
       }
     }
   }
@@ -127,4 +150,3 @@ export function initTimeline(refs, callbacks){
 
   return { renderClips, drawRuler };
 }
-

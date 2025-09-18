@@ -32,6 +32,8 @@ const refs = {
   saveBtn: $('#saveBtn'),
   openBtn: $('#openBtn'),
   newBtn: $('#newBtn'),
+  // resizer
+  rowResizer: document.getElementById('rowResizer'),
 };
 
 // Global drag/drop prevention to avoid navigation
@@ -45,7 +47,8 @@ const timeline = initTimeline(refs, {
   onClipsChanged(){ player.updateScrubRange(); },
   onSelect(){ /* no inspector */ },
   onPlayheadSet(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(true); },
-  onRedrawRequest(){ player.updatePlayheadUI(); }
+  onRedrawRequest(){ player.updatePlayheadUI(); },
+  onScrub(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(false); }
 });
 
 const project = initProject(refs, {
@@ -82,3 +85,22 @@ window.addEventListener('keydown', (e)=>{
 
 // Initial draw
 timeline.drawRuler();
+
+// Viewer/timeline row resizer
+(function initRowResizer(){
+  const handle = refs.rowResizer; if (!handle) return;
+  let startY = 0; let startH = 0;
+  const onMove = (e)=>{
+    const dy = e.clientY - startY;
+    let h = Math.max(160, Math.min(window.innerHeight * 0.7, startH + dy));
+    document.documentElement.style.setProperty('--viewer-h', h + 'px');
+  };
+  const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  handle.addEventListener('mousedown', (e)=>{
+    startY = e.clientY;
+    const cssVal = getComputedStyle(document.documentElement).getPropertyValue('--viewer-h').trim();
+    startH = parseInt(cssVal, 10) || 220;
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  });
+})();
