@@ -99,6 +99,7 @@ timeline.drawRuler();
     const dy = e.clientY - startY;
     let h = Math.max(160, Math.min(window.innerHeight * 0.7, startH + dy));
     document.documentElement.style.setProperty('--viewer-h', h + 'px');
+    try{ localStorage.setItem('fealms.viewerH', String(h)); }catch{}
   };
   const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   handle.addEventListener('mousedown', (e)=>{
@@ -107,6 +108,19 @@ timeline.drawRuler();
     startH = parseInt(cssVal, 10) || 220;
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+  });
+  handle.addEventListener('dblclick', ()=>{
+    const cssVal = getComputedStyle(document.documentElement).getPropertyValue('--viewer-h').trim();
+    const curr = parseInt(cssVal, 10) || 220;
+    const prev = parseInt(localStorage.getItem('fealms.viewerH.prev')||'300', 10) || 300;
+    if (curr > 170){
+      localStorage.setItem('fealms.viewerH.prev', String(curr));
+      document.documentElement.style.setProperty('--viewer-h', '160px');
+      localStorage.setItem('fealms.viewerH', '160');
+    } else {
+      document.documentElement.style.setProperty('--viewer-h', prev + 'px');
+      localStorage.setItem('fealms.viewerH', String(prev));
+    }
   });
 })();
 
@@ -118,6 +132,7 @@ timeline.drawRuler();
     const dx = e.clientX - startX;
     let w = Math.max(160, Math.min(window.innerWidth * 0.6, startW + dx));
     document.documentElement.style.setProperty('--left-w', w + 'px');
+    try{ localStorage.setItem('fealms.leftW', String(w)); }catch{}
   };
   const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   handle.addEventListener('mousedown', (e)=>{
@@ -126,6 +141,19 @@ timeline.drawRuler();
     startW = parseInt(cssVal, 10) || 280;
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+  });
+  handle.addEventListener('dblclick', ()=>{
+    const cssVal = getComputedStyle(document.documentElement).getPropertyValue('--left-w').trim();
+    const curr = parseInt(cssVal, 10) || 280;
+    const prev = parseInt(localStorage.getItem('fealms.leftW.prev')||'320', 10) || 320;
+    if (curr > 170){
+      localStorage.setItem('fealms.leftW.prev', String(curr));
+      document.documentElement.style.setProperty('--left-w', '160px');
+      localStorage.setItem('fealms.leftW', '160');
+    } else {
+      document.documentElement.style.setProperty('--left-w', prev + 'px');
+      localStorage.setItem('fealms.leftW', String(prev));
+    }
   });
 })();
 
@@ -138,7 +166,7 @@ document.getElementById('fitBtn')?.addEventListener('click', ()=>{
   refs.zoom.dispatchEvent(new Event('input'));
   // Scroll to start
   refs.tracksEl.scrollLeft = 0;
-player.updatePlayheadUI();
+  player.updatePlayheadUI();
 });
 
 // Split at playhead (button + keyboard S)
@@ -167,6 +195,36 @@ function splitAtPlayhead(){
   player.updatePlayheadUI();
   player.updateProgramAtPlayhead(true);
 }
+
+// Restore persisted sizes
+(function restoreSizes(){
+  try{
+    const lw = localStorage.getItem('fealms.leftW');
+    if (lw) document.documentElement.style.setProperty('--left-w', lw + 'px');
+    const vh = localStorage.getItem('fealms.viewerH');
+    if (vh) document.documentElement.style.setProperty('--viewer-h', vh + 'px');
+  }catch{}
+})();
+
+// Keyboard resize shortcuts (Cmd/Ctrl + Arrows)
+window.addEventListener('keydown', (e)=>{
+  if (!(e.ctrlKey||e.metaKey)) return;
+  const get = v => parseInt(getComputedStyle(document.documentElement).getPropertyValue(v),10);
+  if (e.key==='ArrowLeft' || e.key==='ArrowRight'){
+    let w = get('--left-w') || 280; w += (e.key==='ArrowRight'? 20 : -20);
+    w = Math.max(160, Math.min(window.innerWidth*0.6, w));
+    document.documentElement.style.setProperty('--left-w', w+'px');
+    try{ localStorage.setItem('fealms.leftW', String(w)); }catch{}
+    e.preventDefault();
+  }
+  if (e.key==='ArrowUp' || e.key==='ArrowDown'){
+    let h = get('--viewer-h') || 220; h += (e.key==='ArrowDown'? 20 : -20);
+    h = Math.max(160, Math.min(window.innerHeight*0.7, h));
+    document.documentElement.style.setProperty('--viewer-h', h+'px');
+    try{ localStorage.setItem('fealms.viewerH', String(h)); }catch{}
+    e.preventDefault();
+  }
+});
 
 // Add tracks
 document.getElementById('addV')?.addEventListener('click', ()=> addTrack('video'));

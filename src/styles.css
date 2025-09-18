@@ -45,9 +45,12 @@ html,body{height:100%; background:var(--bg); color:var(--fg); margin:0; font:14p
 
 /* Monitors */
 .monitors{grid-area:monitors; position:relative; display:flex; flex-direction:column; gap:8px; padding:8px; background:var(--panel); border-right:1px solid var(--line)}
+.row-resizer{position:absolute; left:0; right:0; bottom:-5px; height:10px; cursor:ns-resize}
+.row-resizer::after{content:""; position:absolute; left:20%; right:20%; top:2px; height:6px; border-radius:999px; background:#2a2a2a; box-shadow:0 0 0 1px #0006}
+.row-resizer:hover::after{background:#3a3a3a}
 .col-resizer{grid-area:resize; cursor:ew-resize; position:relative}
-.col-resizer::after{content:""; position:absolute; top:0; bottom:0; left:2px; right:2px; background:transparent}
-.col-resizer:hover::after{background:#2a2a2a}
+.col-resizer::before{content:""; position:absolute; top:0; bottom:0; left:50%; width:2px; transform:translateX(-1px); background:#222}
+.col-resizer:hover::before{background:#2f2f2f}
 .monitor{flex:1; min-height:0}
 .monitor{background:var(--panel-2); border:1px solid var(--line); border-radius:10px; overflow:hidden; display:flex; flex-direction:column}
 .monitor header{padding:8px 10px; color:var(--muted); border-bottom:1px solid var(--line); display:flex; gap:8px; align-items:center}
