@@ -57,23 +57,17 @@ const timeline = initTimeline(refs, {
 
 const project = initProject(refs, {
   onProjectLoaded(){
-    // rebuild media cards
-    state.media.forEach(m=>{
-      const evt = new CustomEvent('rebuild-media', { detail: m });
-      // simple rebuild: create cards from media module by calling addMediaFiles on empty FileList is hard,
-      // so manually create cards similar to media.addMediaCard via dispatch
-      const el = document.createElement('div'); el.className='media'; el.draggable=true; el.dataset.id=m.id;
-      el.innerHTML = `<div class="thumb">${m.type.toUpperCase()}</div><div class="meta"><div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${m.name}</div><div style="color:var(--muted)">${m.type} • ${(m.type==='image'?5:m.duration).toFixed(1)}s</div></div>`;
-      el.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/plain', JSON.stringify({kind:'media', id:m.id})); });
-      refs.mediaList.appendChild(el);
-    });
+    media.renderLibrary();
     // sync controls
     refs.fpsSel.value = String(state.fps);
     refs.zoom.value = state.pxPerSec; refs.zoom.dispatchEvent(new Event('input'));
+    timeline.renderTracks();
     timeline.renderClips();
     player.updateScrubRange();
     state.playhead=0; player.updatePlayheadUI(); player.updateProgramAtPlayhead(true);
-  }
+  },
+  reloadLibrary: media.reloadLibrary,
+  renderLibrary: media.renderLibrary,
 });
 
 // Keyboard nudges and delete
