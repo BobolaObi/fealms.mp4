@@ -64,6 +64,10 @@ html,body{height:100%; background:var(--bg); color:var(--fg); margin:0; font:14p
 /* Timeline */
 .timeline{grid-area:timeline; display:grid; grid-template-rows: 36px 40px 1fr 40px; background:var(--panel-2); border-top:1px solid var(--line)}
 .timeline-top{display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid var(--line)}
+.tool-group{display:flex; align-items:center; gap:6px; margin-right:12px;}
+.tool-btn{border:1px solid #2d2d2d; background:#1e1e1e; color:#c9d0d5; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:13px; transition:background .2s, color .2s, border-color .2s}
+.tool-btn:hover{background:#2a2a2a; color:#fff}
+.tool-btn.active{background:var(--accent); border-color:var(--accent); color:#101010}
 .zoom{display:flex; align-items:center; gap:6px; color:var(--muted)}
 .ruler-wrap{position:relative; height:40px; border-bottom:1px solid var(--line); background:#101010}
 #ruler{position:absolute; inset:0}
@@ -84,6 +88,10 @@ html,body{height:100%; background:var(--bg); color:var(--fg); margin:0; font:14p
 .playhead{position:absolute; top:0; bottom:0; width:3px; background:var(--red); pointer-events:none; z-index:10; box-shadow:0 0 0 1px rgba(0,0,0,.4)}
 .playhead::after{content:""; position:absolute; top:0; left:-6px; width:14px; height:14px; background:var(--red); clip-path:polygon(0 0,100% 0,50% 100%); filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
 .snapline{position:absolute; top:0; bottom:0; width:1px; background:#ffffff33; pointer-events:none}
+
+.app[data-tool="blade"] .tracks,
+.app[data-tool="blade"] .track .lane,
+.app[data-tool="blade"] .clip{cursor:crosshair}
 
 .footer{display:flex; align-items:center; gap:8px; padding:6px 10px; border-top:1px solid var(--line); color:var(--muted)}
 

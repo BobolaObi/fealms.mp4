@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { projectLength, clamp } from './utils.js';
+import { projectLength } from './utils.js';
 import { initMedia } from './media.js';
 import { initTimeline } from './timeline.js';
 import { initPlayer } from './player.js';
@@ -28,6 +28,8 @@ const refs = {
   zoomVal: $('#zoomVal'),
   snap: $('#snap'),
   fpsSel: $('#fps'),
+  toolSelectBtn: $('#toolSelect'),
+  toolBladeBtn: $('#toolBlade'),
   // project
   saveBtn: $('#saveBtn'),
   openBtn: $('#openBtn'),
@@ -37,12 +39,23 @@ const refs = {
   colResizer: document.getElementById('colResizer'),
 };
 
+const appEl = document.getElementById('app');
+
 // Global drag/drop prevention to avoid navigation
 window.addEventListener('dragover', e=> e.preventDefault());
 window.addEventListener('drop', e=> e.preventDefault());
 
 const media = initMedia(refs);
 const player = initPlayer(refs);
+
+let currentTool = 'select';
+const setTool = (tool) => {
+  currentTool = tool;
+  if (appEl){ appEl.setAttribute('data-tool', tool); }
+  refs.toolSelectBtn?.classList.toggle('active', tool==='select');
+  refs.toolBladeBtn?.classList.toggle('active', tool==='blade');
+};
+const getTool = () => currentTool;
 
 let wasPlayingDuringScrub = false;
 const timeline = initTimeline(refs, {
@@ -52,8 +65,19 @@ const timeline = initTimeline(refs, {
   onRedrawRequest(){ player.updatePlayheadUI(); },
   onScrub(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(false); },
   onScrubStart(){ wasPlayingDuringScrub = state.playing; if (wasPlayingDuringScrub) player.pause(); },
-  onScrubEnd(){ if (wasPlayingDuringScrub) player.play(); }
+  onScrubEnd(){ if (wasPlayingDuringScrub) player.play(); },
+  getTool,
+  onBladeCut(clipId, time){
+    if (splitClipAtTime(clipId, time)){
+      player.updateProgramAtPlayhead(true);
+    }
+  }
 });
+
+refs.toolSelectBtn?.addEventListener('click', ()=> setTool('select'));
+refs.toolBladeBtn?.addEventListener('click', ()=> setTool('blade'));
+
+setTool('select');
 
 const project = initProject(refs, {
   onProjectLoaded(){
@@ -75,11 +99,14 @@ window.addEventListener('keydown', (e)=>{
   if (e.target.tagName==='INPUT' || e.target.tagName==='TEXTAREA') return;
   const c = state.clips.find(x=>x.id===state.selectedClipId);
   const fine = e.shiftKey ? 1.0 : 0.1;
-  if (e.key==='Delete' && c){ state.clips = state.clips.filter(x=>x.id!==c.id); state.selectedClipId=null; timeline.renderClips(); player.updateScrubRange(); }
+  if ((e.key==='Delete' || e.key==='Backspace') && c){ state.clips = state.clips.filter(x=>x.id!==c.id); state.selectedClipId=null; timeline.renderClips(); player.updateScrubRange(); e.preventDefault(); }
   if ((e.key==='ArrowLeft'||e.key==='ArrowRight') && c){ c.start = Math.max(0, c.start + (e.key==='ArrowLeft'?-fine:fine)); timeline.renderClips(); }
   if (e.key==='+' || e.key==='='){ refs.zoom.value = Math.min(400, parseInt(refs.zoom.value,10)+10); refs.zoom.dispatchEvent(new Event('input')); }
   if (e.key==='-' || e.key==='_'){ refs.zoom.value = Math.max(20, parseInt(refs.zoom.value,10)-10); refs.zoom.dispatchEvent(new Event('input')); }
   if (e.key==='s' || e.key==='S'){ splitAtPlayhead(); }
+  if (e.key==='v' || e.key==='V'){ setTool('select'); e.preventDefault(); }
+  if (e.key==='c' || e.key==='C'){ setTool('blade'); e.preventDefault(); }
+  if (e.key==='Escape'){ setTool('select'); }
 });
 
 // Initial draw
@@ -166,28 +193,34 @@ document.getElementById('fitBtn')?.addEventListener('click', ()=>{
 // Split at playhead (button + keyboard S)
 document.getElementById('splitBtn')?.addEventListener('click', ()=> splitAtPlayhead());
 
-function splitAtPlayhead(){
-  const t = state.playhead;
-  // Prefer selected clip if it intersects playhead; else find first on V1 or A1
-  let idx = state.clips.findIndex(x=> x.id===state.selectedClipId && t>=(x.start+0.001) && t<=(x.start + x.dur - 0.001));
-  if (idx === -1){
-    idx = state.clips.findIndex(x=> t>=(x.start+0.001) && t<=(x.start + x.dur - 0.001));
-  }
-  if (idx === -1) return; // nothing to split
+function splitClipAtTime(clipId, time){
+  const idx = state.clips.findIndex(x=>x.id===clipId);
+  if (idx === -1) return false;
   const c = state.clips[idx];
   const minDur = 0.05;
-  const leftDur = clamp(t - c.start, minDur, c.dur - minDur);
-  const rightDur = c.dur - leftDur;
-  if (leftDur < minDur || rightDur < minDur) return; // too small
+  const relative = time - c.start;
+  if (relative < minDur || c.dur - relative < minDur) return false;
+  const leftDur = relative;
+  const rightDur = c.dur - relative;
   const left = { ...c, id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), dur: leftDur, out: c.in + leftDur };
-  const right = { ...c, id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), start: t, dur: rightDur, in: c.in + leftDur };
-  // Replace original with left+right
+  const right = { ...c, id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), start: c.start + leftDur, dur: rightDur, in: c.in + leftDur };
   state.clips.splice(idx, 1, left, right);
   state.selectedClipId = right.id;
   timeline.renderClips();
   player.updateScrubRange();
   player.updatePlayheadUI();
-  player.updateProgramAtPlayhead(true);
+  return true;
+}
+
+function splitAtPlayhead(){
+  const t = state.playhead;
+  // Prefer selected clip if it intersects playhead; else find first on V1 or A1
+  let target = state.clips.find(x=> x.id===state.selectedClipId && t>=(x.start+0.001) && t<=(x.start + x.dur - 0.001));
+  if (!target){ target = state.clips.find(x=> t>=(x.start+0.001) && t<=(x.start + x.dur - 0.001)); }
+  if (!target) return;
+  if (splitClipAtTime(target.id, t)){
+    player.updateProgramAtPlayhead(true);
+  }
 }
 
 // Restore persisted sizes

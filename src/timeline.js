@@ -3,7 +3,7 @@ import { clamp, snapTime } from './utils.js';
 
 export function initTimeline(refs, callbacks){
   const { tracksEl, playheadEl, ruler, zoom, zoomVal, snap, fpsSel } = refs;
-  const { onClipsChanged, onSelect, onPlayheadSet, onRedrawRequest, onScrub, onScrubStart, onScrubEnd } = callbacks;
+  const { onClipsChanged, onSelect, onPlayheadSet, onRedrawRequest, onScrub, onScrubStart, onScrubEnd, getTool, onBladeCut } = callbacks;
 
   const laneForTrack = (track) => tracksEl.querySelector(`.track[data-track="${track}"] .lane`);
   const secondsToX = (sec) => 54 + sec * state.pxPerSec - tracksEl.scrollLeft;
@@ -39,6 +39,20 @@ export function initTimeline(refs, callbacks){
       let startX, startStart;
       el.addEventListener('mousedown', (e)=>{
         if (e.target.classList.contains('h')) return; // handled by resize
+
+        const tool = getTool?.() || 'select';
+        if (tool === 'blade'){
+          const x = e.clientX - tracksEl.getBoundingClientRect().left;
+          let cutTime = xToSeconds(x);
+          cutTime = snapTime(state, cutTime);
+          cutTime = clamp(cutTime, c.start + 0.02, c.start + c.dur - 0.02);
+          if (cutTime > c.start && cutTime < c.start + c.dur){
+            onBladeCut?.(c.id, cutTime);
+          }
+          e.stopPropagation();
+          return;
+        }
+
         state.selectedClipId = c.id; onSelect?.(c.id);
         el.style.cursor='grabbing';
         startX = e.clientX; startStart = c.start;
