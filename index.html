@@ -15,6 +15,7 @@
       <button class="menu-btn" id="newBtn">New</button>
       <button class="menu-btn" id="openBtn">Open…</button>
       <button class="menu-btn" id="saveBtn">Save</button>
+      <button class="menu-btn" id="cheatBtn">Cheat Sheet</button>
       <span class="spacer"></span>
       <span class="chip">Tip: Drag files → Drop on timeline → Space to play</span>
       <span class="chip">Zoom: <span class="kbd">+</span>/<span class="kbd">−</span></span>
@@ -79,5 +80,61 @@
   </div>
 
   <script type="module" src="src/main.js"></script>
+
+  <div class="cheatsheet" id="cheatSheet" aria-hidden="true">
+    <div class="cheatsheet-panel" role="dialog" aria-modal="true" aria-labelledby="cheatTitle">
+      <header>
+        <h2 id="cheatTitle">Timeline Cheat Sheet</h2>
+        <button class="icon-btn" id="cheatClose" aria-label="Close cheat sheet">✕</button>
+      </header>
+      <div class="cheatsheet-content">
+        <section class="cs-section">
+          <h3>Workflow</h3>
+          <ol>
+            <li>Import media (Ctrl/Cmd+I or drag to Project).</li>
+            <li>Drop first clip to create your sequence.</li>
+            <li>Assemble a rough cut: move, split (S or Ctrl/Cmd+K), ripple trim (Q/W).</li>
+            <li>Fine tune timing with zoom, snapping, and clip nudges (Alt+←/→).</li>
+            <li>Add sound layers on audio tracks, balance levels.</li>
+            <li>Polish: transitions, text, pacing, playback review.</li>
+            <li>Export or save the project JSON for later.</li>
+          </ol>
+        </section>
+        <section class="cs-section">
+          <h3>Navigation</h3>
+          <div class="cs-grid">
+            <div class="cs-grid-item"><span class="cs-key">Space</span><span>Play / pause</span></div>
+            <div class="cs-grid-item"><span class="cs-key">← / →</span><span>Step playhead 1 frame</span></div>
+            <div class="cs-grid-item"><span class="cs-key">Shift+← / →</span><span>Jump 5 frames</span></div>
+            <div class="cs-grid-item"><span class="cs-key">Home / End</span><span>Jump to sequence start / end</span></div>
+            <div class="cs-grid-item"><span class="cs-key">Mouse + Scroll</span><span>Pan timeline horizontally</span></div>
+            <div class="cs-grid-item"><span class="cs-key">+/−</span><span>Zoom in / out</span></div>
+          </div>
+        </section>
+        <section class="cs-section">
+          <h3>Editing Tools</h3>
+          <div class="cs-grid">
+            <div class="cs-grid-item"><span class="cs-key">V</span><span>Select tool</span></div>
+            <div class="cs-grid-item"><span class="cs-key">C</span><span>Blade tool (click to cut)</span></div>
+            <div class="cs-grid-item"><span class="cs-key">Q</span><span>Ripple trim start to playhead</span></div>
+            <div class="cs-grid-item"><span class="cs-key">W</span><span>Ripple trim playhead to end</span></div>
+            <div class="cs-grid-item"><span class="cs-key">Ctrl/Cmd+K</span><span>Split at playhead</span></div>
+            <div class="cs-grid-item"><span class="cs-key">S</span><span>Split at playhead (shortcut)</span></div>
+            <div class="cs-grid-item"><span class="cs-key">Alt+Drag</span><span>Duplicate clip</span></div>
+            <div class="cs-grid-item"><span class="cs-key">Delete</span><span>Remove selected clip</span></div>
+          </div>
+        </section>
+        <section class="cs-section">
+          <h3>Timeline Tips</h3>
+          <ul class="cs-list">
+            <li>Drag the red playhead or use the viewer scrubber for quick preview jumps.</li>
+            <li>Use the zoom slider or the Fit button to frame the whole sequence.</li>
+            <li>Enable snapping to line up edits on the ruler grid.</li>
+            <li>Add extra V/A tracks from the timeline footer when layering footage or sound.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

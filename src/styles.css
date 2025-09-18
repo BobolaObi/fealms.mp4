@@ -111,3 +111,18 @@ input[type=file]{display:none}
 ::-webkit-scrollbar{height:10px;width:10px}
 ::-webkit-scrollbar-thumb{background:#2b2b2b;border-radius:6px}
 ::-webkit-scrollbar-track{background:#141414}
+
+/* Cheat sheet overlay */
+.cheatsheet{position:fixed; inset:0; background:rgba(0,0,0,0.65); display:none; align-items:center; justify-content:center; padding:24px; z-index:200;}
+.cheatsheet.visible{display:flex;}
+.cheatsheet-panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; width:min(720px, 100%); max-height:90vh; display:flex; flex-direction:column; box-shadow:var(--shadow);}
+.cheatsheet-panel header{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--line);}
+.cheatsheet-panel h2{margin:0; font-size:18px; font-weight:600; letter-spacing:.4px;}
+.cheatsheet .icon-btn{background:#2b2b2b;}
+.cheatsheet-content{padding:18px 20px 24px; overflow:auto; display:flex; flex-direction:column; gap:18px;}
+.cs-section h3{margin:0 0 8px; font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted);}
+.cs-section ol{margin:0; padding-left:18px; display:grid; gap:6px;}
+.cs-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:10px 14px;}
+.cs-grid-item{display:flex; align-items:center; gap:8px;}
+.cs-key{background:#242424; border:1px solid #343434; border-radius:8px; padding:2px 8px; font-size:12px; font-family:"JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;}
+.cs-list{margin:0; padding-left:18px; color:var(--fg); display:grid; gap:6px;}

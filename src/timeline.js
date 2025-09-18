@@ -9,6 +9,8 @@ export function initTimeline(refs, callbacks){
   const secondsToX = (sec) => 54 + sec * state.pxPerSec - tracksEl.scrollLeft;
   const xToSeconds = (x) => (x + tracksEl.scrollLeft - 54) / state.pxPerSec;
 
+  let duplicateGuard = false;
+
   function renderTracks(){
     // remove existing track elements (keep playhead)
     tracksEl.querySelectorAll('.track').forEach(t=> t.remove());
@@ -36,9 +38,20 @@ export function initTimeline(refs, callbacks){
       el.innerHTML = `<small>${c.name}</small><div class="handles"><div class="h hL"></div><div class="h hR"></div></div>`;
 
       // Drag move
-      let startX, startStart;
       el.addEventListener('mousedown', (e)=>{
         if (e.target.classList.contains('h')) return; // handled by resize
+
+        if (!duplicateGuard && e.altKey){
+          e.preventDefault();
+          const clone = { ...c, id: crypto.randomUUID?.() || Math.random().toString(36).slice(2) };
+          const idx = state.clips.indexOf(c);
+          clone.start = snapTime(state, clone.start);
+          state.clips.splice(idx + 1, 0, clone);
+          state.selectedClipId = clone.id;
+          onSelect?.(clone.id);
+          timelineRenderAndReenter(e, clone.id);
+          return;
+        }
 
         const tool = getTool?.() || 'select';
         if (tool === 'blade'){
@@ -53,17 +66,7 @@ export function initTimeline(refs, callbacks){
           return;
         }
 
-        state.selectedClipId = c.id; onSelect?.(c.id);
-        el.style.cursor='grabbing';
-        startX = e.clientX; startStart = c.start;
-        const onMove = (ev)=>{
-          const dx = (ev.clientX - startX) / state.pxPerSec;
-          c.start = snapTime(state, Math.max(0, startStart + dx));
-          el.style.left = (c.start*state.pxPerSec)+'px';
-          onRedrawRequest?.();
-        }
-        const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); el.style.cursor='grab'; onClipsChanged?.(); };
-        window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+        beginDrag(e, c, el);
       });
 
       // Resizing
@@ -75,6 +78,27 @@ export function initTimeline(refs, callbacks){
       el.addEventListener('dblclick', ()=> { state.playhead = c.start; onPlayheadSet?.(); });
       lane.appendChild(el);
     }
+  }
+
+  function beginDrag(e, clip, el){
+    state.selectedClipId = clip.id; onSelect?.(clip.id);
+    el.style.cursor = 'grabbing';
+    const startX = e.clientX;
+    const startStart = clip.start;
+    const onMove = (ev)=>{
+      const dx = (ev.clientX - startX) / state.pxPerSec;
+      clip.start = snapTime(state, Math.max(0, startStart + dx));
+      el.style.left = (clip.start * state.pxPerSec) + 'px';
+      onRedrawRequest?.();
+    };
+    const onUp = ()=>{
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      el.style.cursor = 'grab';
+      onClipsChanged?.();
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }
 
   function startResize(e, c, side){
@@ -95,6 +119,30 @@ export function initTimeline(refs, callbacks){
     };
     const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); onClipsChanged?.(); };
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+  }
+
+  function timelineRenderAndReenter(originalEvent, newClipId){
+    const scrollPos = tracksEl.scrollLeft;
+    renderClips();
+    tracksEl.scrollLeft = scrollPos;
+    const newEl = tracksEl.querySelector(`.clip[data-id="${newClipId}"]`);
+    if (!newEl) return;
+    duplicateGuard = true;
+    try{
+      const synthetic = new MouseEvent('mousedown', {
+        clientX: originalEvent.clientX,
+        clientY: originalEvent.clientY,
+        buttons: originalEvent.buttons || 1,
+        bubbles: true,
+        altKey: originalEvent.altKey,
+        shiftKey: originalEvent.shiftKey,
+        ctrlKey: originalEvent.ctrlKey,
+        metaKey: originalEvent.metaKey,
+      });
+      newEl.dispatchEvent(synthetic);
+    } finally {
+      duplicateGuard = false;
+    }
   }
 
   function attachLaneDnD(){
