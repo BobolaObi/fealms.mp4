@@ -3,7 +3,7 @@ import { clamp, snapTime } from './utils.js';
 
 export function initTimeline(refs, callbacks){
   const { tracksEl, playheadEl, ruler, zoom, zoomVal, snap, fpsSel } = refs;
-  const { onClipsChanged, onSelect, onPlayheadSet, onRedrawRequest, onScrub } = callbacks;
+  const { onClipsChanged, onSelect, onPlayheadSet, onRedrawRequest, onScrub, onScrubStart, onScrubEnd } = callbacks;
 
   const laneForTrack = (track) => tracksEl.querySelector(`.track[data-track="${track}"] .lane`);
   const secondsToX = (sec) => 54 + sec * state.pxPerSec - tracksEl.scrollLeft;
@@ -101,9 +101,9 @@ export function initTimeline(refs, callbacks){
     state.playhead = t;
   }
   function startScrub(e, container){
-    setPlayheadFromEvent(e, container); onPlayheadSet?.();
+    setPlayheadFromEvent(e, container); onPlayheadSet?.(); onScrubStart?.();
     const onMove = (ev)=>{ setPlayheadFromEvent(ev, container); onScrub?.(); };
-    const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); onScrubEnd?.(); };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   }

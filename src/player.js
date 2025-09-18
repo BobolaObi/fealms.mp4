@@ -4,7 +4,7 @@ import { fmtTC, projectLength } from './utils.js';
 export function initPlayer(refs){
   const { tracksEl, playheadEl, programVideo, programAudio, programTC, playBtn, stopBtn, rewBtn, scrub, fpsSel } = refs;
 
-  let raf = null; let lastTs = 0;
+  let raf = null; let lastTs = 0; let lastUiTs = 0;
   function togglePlay(){ state.playing ? pause() : play(); }
   function play(){ state.playing=true; playBtn.textContent='⏸'; lastTs=performance.now(); tick(); }
   function pause(){ state.playing=false; playBtn.textContent='▶'; cancelAnimationFrame(raf); programVideo.pause(); programAudio.pause(); }
@@ -17,7 +17,12 @@ export function initPlayer(refs){
     if (!state.playing) return;
     state.playhead += dt; const end = projectLength(state);
     if (state.playhead > end+0.001) { pause(); return; }
-    updatePlayheadUI(); updateProgramAtPlayhead(false);
+    // Throttle UI updates to ~30fps for smoother playback on slower devices
+    if (!lastUiTs || ts - lastUiTs > 33){
+      lastUiTs = ts;
+      updatePlayheadUI();
+      updateProgramAtPlayhead(false);
+    }
   }
 
   function updatePlayheadUI(){
@@ -108,6 +113,5 @@ export function initPlayer(refs){
 
   fpsSel.addEventListener('change', ()=>{ state.fps=parseInt(fpsSel.value,10)||30; });
 
-  return { updatePlayheadUI, updateProgramAtPlayhead, updateScrubRange };
+  return { updatePlayheadUI, updateProgramAtPlayhead, updateScrubRange, play, pause, togglePlay };
 }
-

@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { projectLength } from './utils.js';
+import { projectLength, clamp } from './utils.js';
 import { initMedia } from './media.js';
 import { initTimeline } from './timeline.js';
 import { initPlayer } from './player.js';
@@ -43,12 +43,15 @@ window.addEventListener('drop', e=> e.preventDefault());
 const media = initMedia(refs);
 const player = initPlayer(refs);
 
+let wasPlayingDuringScrub = false;
 const timeline = initTimeline(refs, {
   onClipsChanged(){ player.updateScrubRange(); },
   onSelect(){ /* no inspector */ },
   onPlayheadSet(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(true); },
   onRedrawRequest(){ player.updatePlayheadUI(); },
-  onScrub(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(false); }
+  onScrub(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(false); },
+  onScrubStart(){ wasPlayingDuringScrub = state.playing; if (wasPlayingDuringScrub) player.pause(); },
+  onScrubEnd(){ if (wasPlayingDuringScrub) player.play(); }
 });
 
 const project = initProject(refs, {
@@ -81,6 +84,7 @@ window.addEventListener('keydown', (e)=>{
   if ((e.key==='ArrowLeft'||e.key==='ArrowRight') && c){ c.start = Math.max(0, c.start + (e.key==='ArrowLeft'?-fine:fine)); timeline.renderClips(); }
   if (e.key==='+' || e.key==='='){ refs.zoom.value = Math.min(400, parseInt(refs.zoom.value,10)+10); refs.zoom.dispatchEvent(new Event('input')); }
   if (e.key==='-' || e.key==='_'){ refs.zoom.value = Math.max(20, parseInt(refs.zoom.value,10)-10); refs.zoom.dispatchEvent(new Event('input')); }
+  if (e.key==='s' || e.key==='S'){ splitAtPlayhead(); }
 });
 
 // Initial draw
@@ -104,3 +108,42 @@ timeline.drawRuler();
     window.addEventListener('mouseup', onUp);
   });
 })();
+
+// Zoom-to-fit control: fits project length into visible tracks width
+document.getElementById('fitBtn')?.addEventListener('click', ()=>{
+  const len = Math.max(1, projectLength(state));
+  const availablePx = Math.max(200, refs.tracksEl.clientWidth - 54);
+  const pxPerSec = Math.min(400, Math.max(20, Math.floor(availablePx / len)));
+  refs.zoom.value = String(pxPerSec);
+  refs.zoom.dispatchEvent(new Event('input'));
+  // Scroll to start
+  refs.tracksEl.scrollLeft = 0;
+  player.updatePlayheadUI();
+});
+
+// Split at playhead (button + keyboard S)
+document.getElementById('splitBtn')?.addEventListener('click', ()=> splitAtPlayhead());
+
+function splitAtPlayhead(){
+  const t = state.playhead;
+  // Prefer selected clip if it intersects playhead; else find first on V1 or A1
+  let idx = state.clips.findIndex(x=> x.id===state.selectedClipId && t>=(x.start+0.001) && t<=(x.start + x.dur - 0.001));
+  if (idx === -1){
+    idx = state.clips.findIndex(x=> t>=(x.start+0.001) && t<=(x.start + x.dur - 0.001));
+  }
+  if (idx === -1) return; // nothing to split
+  const c = state.clips[idx];
+  const minDur = 0.05;
+  const leftDur = clamp(t - c.start, minDur, c.dur - minDur);
+  const rightDur = c.dur - leftDur;
+  if (leftDur < minDur || rightDur < minDur) return; // too small
+  const left = { ...c, id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), dur: leftDur, out: c.in + leftDur };
+  const right = { ...c, id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), start: t, dur: rightDur, in: c.in + leftDur };
+  // Replace original with left+right
+  state.clips.splice(idx, 1, left, right);
+  state.selectedClipId = right.id;
+  timeline.renderClips();
+  player.updateScrubRange();
+  player.updatePlayheadUI();
+  player.updateProgramAtPlayhead(true);
+}
