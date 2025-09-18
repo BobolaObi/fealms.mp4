@@ -34,6 +34,7 @@ const refs = {
   newBtn: $('#newBtn'),
   // resizer
   rowResizer: document.getElementById('rowResizer'),
+  colResizer: document.getElementById('colResizer'),
 };
 
 // Global drag/drop prevention to avoid navigation
@@ -104,6 +105,25 @@ timeline.drawRuler();
     startY = e.clientY;
     const cssVal = getComputedStyle(document.documentElement).getPropertyValue('--viewer-h').trim();
     startH = parseInt(cssVal, 10) || 220;
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  });
+})();
+
+// Sidebar (left) column resizer
+(function initColResizer(){
+  const handle = refs.colResizer; if (!handle) return;
+  let startX = 0; let startW = 0;
+  const onMove = (e)=>{
+    const dx = e.clientX - startX;
+    let w = Math.max(160, Math.min(window.innerWidth * 0.6, startW + dx));
+    document.documentElement.style.setProperty('--left-w', w + 'px');
+  };
+  const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  handle.addEventListener('mousedown', (e)=>{
+    startX = e.clientX;
+    const cssVal = getComputedStyle(document.documentElement).getPropertyValue('--left-w').trim();
+    startW = parseInt(cssVal, 10) || 280;
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   });

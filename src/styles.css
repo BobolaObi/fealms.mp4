@@ -3,6 +3,8 @@
   --fg:#eaeaea; --muted:#9aa0a6; --accent:#4fc3f7; --blue:#64b5f6; --green:#66bb6a; --red:#ef5350;
   --select:#ffca28;
   --radius:10px; --shadow:0 8px 28px rgba(0,0,0,.35);
+  --viewer-h: 220px; /* row height for viewer */
+  --left-w: 280px;   /* sidebar width */
 }
 
 *{box-sizing:border-box}
@@ -11,13 +13,13 @@ html,body{height:100%; background:var(--bg); color:var(--fg); margin:0; font:14p
 /* App grid */
 .app{
   display:grid;
-  /* Make the timeline the roomy area; viewer gets a flexible min height */
-  grid-template-rows: 40px minmax(220px, 50vh) 1fr;
-  grid-template-columns: 280px 1fr;
+  /* Adjustable viewer height and sidebar width */
+  grid-template-rows: 40px var(--viewer-h) 1fr;
+  grid-template-columns: var(--left-w) 6px 1fr;
   grid-template-areas:
-    "menubar menubar"
-    "left     monitors"
-    "timeline timeline";
+    "menubar menubar menubar"
+    "left    resize  monitors"
+    "left    resize  timeline";
   height:100vh;
 }
 
@@ -29,7 +31,7 @@ html,body{height:100%; background:var(--bg); color:var(--fg); margin:0; font:14p
 .chip{background:#232323; border:1px solid #2e2e2e; padding:3px 8px; border-radius:999px; color:var(--muted)}
 
 /* Left: Project */
-.left{grid-area:left; display:flex; flex-direction:column; background:var(--panel); border-right:1px solid var(--line)}
+.left{grid-area:left; display:flex; flex-direction:column; background:var(--panel); border-right:1px solid var(--line); min-width:160px}
 .panel{flex:1; overflow:auto}
 .panel h4{margin:10px; color:var(--muted); font-weight:600}
 .project-tools{display:flex; gap:8px; padding:8px; border-bottom:1px solid var(--line)}
@@ -43,6 +45,9 @@ html,body{height:100%; background:var(--bg); color:var(--fg); margin:0; font:14p
 
 /* Monitors */
 .monitors{grid-area:monitors; position:relative; display:flex; flex-direction:column; gap:8px; padding:8px; background:var(--panel); border-right:1px solid var(--line)}
+.col-resizer{grid-area:resize; cursor:ew-resize; position:relative}
+.col-resizer::after{content:""; position:absolute; top:0; bottom:0; left:2px; right:2px; background:transparent}
+.col-resizer:hover::after{background:#2a2a2a}
 .monitor{flex:1; min-height:0}
 .monitor{background:var(--panel-2); border:1px solid var(--line); border-radius:10px; overflow:hidden; display:flex; flex-direction:column}
 .monitor header{padding:8px 10px; color:var(--muted); border-bottom:1px solid var(--line); display:flex; gap:8px; align-items:center}
