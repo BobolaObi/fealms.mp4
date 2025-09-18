@@ -33,14 +33,25 @@ export function initPlayer(refs){
   function updateScrubRange(){ scrub.max = Math.max(60, projectLength(state)+5); }
 
   function getActiveClipAt(t){
-    const videos = state.clips.filter(c=> c.track==='V1' && t>=c.start && t< c.start + c.dur);
-    if (videos.length===0) return null;
-    return videos[0];
+    // choose topmost video track by state.tracks order (last video wins)
+    const order = state.tracks.map(tk=>tk.id);
+    const candidates = state.clips.filter(c=> {
+      const tr = state.tracks.find(tk=>tk.id===c.track);
+      return tr && tr.kind==='video' && t>=c.start && t< c.start + c.dur;
+    });
+    if (candidates.length===0) return null;
+    candidates.sort((a,b)=> order.indexOf(a.track) - order.indexOf(b.track));
+    return candidates[candidates.length-1];
   }
   function getActiveAudioAt(t){
-    const auds = state.clips.filter(c=> c.track==='A1' && t>=c.start && t< c.start + c.dur);
+    const order = state.tracks.map(tk=>tk.id);
+    const auds = state.clips.filter(c=> {
+      const tr = state.tracks.find(tk=>tk.id===c.track);
+      return tr && tr.kind==='audio' && t>=c.start && t< c.start + c.dur;
+    });
     if (auds.length===0) return null;
-    return auds[0];
+    auds.sort((a,b)=> order.indexOf(a.track) - order.indexOf(b.track));
+    return auds[auds.length-1];
   }
 
   let currentProgClipId = null; let currentProgKind = null;

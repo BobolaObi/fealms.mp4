@@ -118,7 +118,7 @@ document.getElementById('fitBtn')?.addEventListener('click', ()=>{
   refs.zoom.dispatchEvent(new Event('input'));
   // Scroll to start
   refs.tracksEl.scrollLeft = 0;
-  player.updatePlayheadUI();
+player.updatePlayheadUI();
 });
 
 // Split at playhead (button + keyboard S)
@@ -146,4 +146,20 @@ function splitAtPlayhead(){
   player.updateScrubRange();
   player.updatePlayheadUI();
   player.updateProgramAtPlayhead(true);
+}
+
+// Add tracks
+document.getElementById('addV')?.addEventListener('click', ()=> addTrack('video'));
+document.getElementById('addA')?.addEventListener('click', ()=> addTrack('audio'));
+
+function addTrack(kind){
+  const prefix = kind==='audio' ? 'A' : 'V';
+  const nums = state.tracks.filter(t=>t.kind===kind).map(t=>parseInt(t.id.slice(1),10)).filter(n=>!isNaN(n));
+  const nextNum = (nums.length? Math.max(...nums):0) + 1;
+  const id = `${prefix}${nextNum}`;
+  const insertIndex = kind==='video' ? state.tracks.findIndex(t=>t.kind==='audio') : state.tracks.length;
+  if (insertIndex === -1) { state.tracks.push({id,kind}); } else { state.tracks.splice(insertIndex,0,{id,kind}); }
+  timeline.renderTracks();
+  timeline.renderClips();
+  player.updatePlayheadUI();
 }

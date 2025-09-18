@@ -9,6 +9,20 @@ export function initTimeline(refs, callbacks){
   const secondsToX = (sec) => 54 + sec * state.pxPerSec - tracksEl.scrollLeft;
   const xToSeconds = (x) => (x + tracksEl.scrollLeft - 54) / state.pxPerSec;
 
+  function renderTracks(){
+    // remove existing track elements (keep playhead)
+    tracksEl.querySelectorAll('.track').forEach(t=> t.remove());
+    for (const tr of state.tracks){
+      const el = document.createElement('div');
+      el.className = 'track';
+      el.dataset.track = tr.id;
+      el.dataset.kind = tr.kind;
+      el.innerHTML = `<div class="label">${tr.id}</div><div class="lane"></div>`;
+      tracksEl.appendChild(el);
+    }
+    attachLaneDnD();
+  }
+
   function renderClips(){
     tracksEl.querySelectorAll('.lane').forEach(l => l.innerHTML='');
     tracksEl.dataset.empty = state.clips.length === 0 ? '1' : '0';
@@ -69,30 +83,33 @@ export function initTimeline(refs, callbacks){
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
   }
 
-  // Accept drops on lanes
-  tracksEl.querySelectorAll('.track .lane').forEach(lane => {
-    lane.addEventListener('dragover', e=>{ e.preventDefault(); lane.style.outline='2px dashed #333'; });
-    lane.addEventListener('dragleave', ()=> lane.style.outline='');
-    lane.addEventListener('drop', e=>{
-      e.preventDefault(); lane.style.outline='';
-      const data = JSON.parse(e.dataTransfer.getData('text/plain')||'{}');
-      if (data.kind==='media'){
-        const m = state.media.find(x=>x.id===data.id); if (!m) return;
-        const rect = lane.getBoundingClientRect();
-        const sec = snapTime(state, xToSeconds(e.clientX - rect.left));
-        const dur = clamp((m.out - m.in) || (m.duration||5), 0.05, 1e9);
-        // Enforce media type to the correct track: videos/images -> V1, audio -> A1
-        const intendedTrack = (m.type === 'audio') ? 'A1' : 'V1';
-        const droppedTrack = lane.closest('.track').dataset.track;
-        const track = (m.type === 'audio') ? (droppedTrack === 'A1' ? 'A1' : 'A1') : (droppedTrack === 'V1' ? 'V1' : 'V1');
-        const clip = { id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), mediaId:m.id, name:m.name, type:m.type, track, start:sec, dur:dur, in:m.in, out:m.out };
-        state.clips.push(clip);
-        renderClips();
-        state.selectedClipId = clip.id; onSelect?.(clip.id);
-        onClipsChanged?.();
-      }
+  function attachLaneDnD(){
+    tracksEl.querySelectorAll('.track .lane').forEach(lane => {
+      lane.addEventListener('dragover', e=>{ e.preventDefault(); lane.style.outline='2px dashed #333'; });
+      lane.addEventListener('dragleave', ()=> lane.style.outline='');
+      lane.addEventListener('drop', e=>{
+        e.preventDefault(); lane.style.outline='';
+        const data = JSON.parse(e.dataTransfer.getData('text/plain')||'{}');
+        if (data.kind==='media'){
+          const m = state.media.find(x=>x.id===data.id); if (!m) return;
+          const trackEl = lane.closest('.track');
+          const trackKind = trackEl.dataset.kind;
+          // Only allow matching media → track kind
+          if ((m.type==='audio' && trackKind!=='audio') || (m.type!=='audio' && trackKind!=='video')){
+            return; // wrong lane type
+          }
+          const rect = lane.getBoundingClientRect();
+          const sec = snapTime(state, xToSeconds(e.clientX - rect.left));
+          const dur = clamp((m.out - m.in) || (m.duration||5), 0.05, 1e9);
+          const clip = { id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), mediaId:m.id, name:m.name, type:m.type, track: trackEl.dataset.track, start:sec, dur:dur, in:m.in, out:m.out };
+          state.clips.push(clip);
+          renderClips();
+          state.selectedClipId = clip.id; onSelect?.(clip.id);
+          onClipsChanged?.();
+        }
+      });
     });
-  });
+  }
 
   // Scrub helpers
   function setPlayheadFromEvent(e, container){
@@ -148,5 +165,9 @@ export function initTimeline(refs, callbacks){
   new ResizeObserver(drawRuler).observe(ruler.parentElement);
   tracksEl.addEventListener('scroll', drawRuler);
 
-  return { renderClips, drawRuler };
+  // initial tracks
+  renderTracks();
+  renderClips();
+
+  return { renderTracks, renderClips, drawRuler };
 }

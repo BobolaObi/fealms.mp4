@@ -60,11 +60,15 @@
       <div class="ruler-wrap"><canvas id="ruler"></canvas></div>
       <div class="tracks" id="tracks">
         <div class="playhead" id="playhead" style="left:0"></div>
-        <div class="track" data-track="V1"><div class="label">V1</div><div class="lane"></div></div>
-        <div class="track" data-track="A1"><div class="label">A1</div><div class="lane"></div></div>
+        <!-- tracks are rendered dynamically -->
       </div>
       <div class="footer">
         <div>Project FPS: <select id="fps"><option>24</option><option selected>30</option><option>60</option></select></div>
+        <div class="spacer"></div>
+        <div>
+          <button class="btn" id="addV">+ Video Track</button>
+          <button class="btn" id="addA">+ Audio Track</button>
+        </div>
       </div>
     </section>
   </div>

@@ -5,7 +5,7 @@ export function initProject(refs, { onProjectLoaded }){
 
   const serialize = () => JSON.stringify({version:1,
     media: state.media.map(m=>({id:m.id,name:m.name,type:m.type,url:m.url,duration:m.duration,in:m.in,out:m.out})),
-    clips: state.clips, fps: state.fps, pxPerSec: state.pxPerSec
+    clips: state.clips, tracks: state.tracks, fps: state.fps, pxPerSec: state.pxPerSec
   }, null, 2);
 
   const download = (name, text) => { const blob=new Blob([text],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000); };
@@ -17,6 +17,7 @@ export function initProject(refs, { onProjectLoaded }){
     mediaList.innerHTML='';
     // caller should re-render media cards from state.media
     state.clips = (p.clips||[]).map(c=> ({...c}));
+    state.tracks = (p.tracks && p.tracks.length) ? p.tracks.map(t=>({...t})) : [{id:'V1',kind:'video'},{id:'A1',kind:'audio'}];
     state.playhead=0;
     onProjectLoaded?.();
   }
@@ -29,4 +30,3 @@ export function initProject(refs, { onProjectLoaded }){
 
   return { loadProject };
 }
-
