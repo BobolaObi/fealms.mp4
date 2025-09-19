@@ -68,6 +68,10 @@ html,body{height:100%; background:var(--bg); color:var(--fg); margin:0; font:14p
 .tool-btn{border:1px solid #2d2d2d; background:#1e1e1e; color:#c9d0d5; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:13px; transition:background .2s, color .2s, border-color .2s}
 .tool-btn:hover{background:#2a2a2a; color:#fff}
 .tool-btn.active{background:var(--accent); border-color:var(--accent); color:#101010}
+.action-group{display:flex; align-items:center; gap:6px; margin-right:16px;}
+.action-btn{border:1px solid #2d2d2d; background:#212121; color:#d0d5db; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:13px; transition:background .2s, color .2s, border-color .2s}
+.action-btn:hover{background:#2c2c2c; color:#fff}
+.action-btn:disabled{background:#161616; color:#545b63; border-color:#1f1f1f; cursor:not-allowed}
 .zoom{display:flex; align-items:center; gap:6px; color:var(--muted)}
 .ruler-wrap{position:relative; height:40px; border-bottom:1px solid var(--line); background:#101010}
 #ruler{position:absolute; inset:0}

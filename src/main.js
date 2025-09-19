@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { projectLength } from './utils.js';
+import { projectLength, snapTime } from './utils.js';
 import { initMedia } from './media.js';
 import { initTimeline } from './timeline.js';
 import { initPlayer } from './player.js';
@@ -30,6 +30,10 @@ const refs = {
   fpsSel: $('#fps'),
   toolSelectBtn: $('#toolSelect'),
   toolBladeBtn: $('#toolBlade'),
+  actionRippleLeft: $('#btnRippleLeft'),
+  actionRippleRight: $('#btnRippleRight'),
+  actionSplit: $('#btnSplit'),
+  actionDuplicate: $('#btnDuplicate'),
   // project
   saveBtn: $('#saveBtn'),
   openBtn: $('#openBtn'),
@@ -66,11 +70,11 @@ const getTool = () => currentTool;
 
 let wasPlayingDuringScrub = false;
 const timeline = initTimeline(refs, {
-  onClipsChanged(){ player.updateScrubRange(); },
-  onSelect(){ /* no inspector */ },
-  onPlayheadSet(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(true); },
-  onRedrawRequest(){ player.updatePlayheadUI(); },
-  onScrub(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(false); },
+  onClipsChanged(){ player.updateScrubRange(); updateActionButtons(); },
+  onSelect(){ updateActionButtons(); },
+  onPlayheadSet(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(true); updateActionButtons(); },
+  onRedrawRequest(){ player.updatePlayheadUI(); updateActionButtons(); },
+  onScrub(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(false); updateActionButtons(); },
   onScrubStart(){ wasPlayingDuringScrub = state.playing; if (wasPlayingDuringScrub) player.pause(); },
   onScrubEnd(){ if (wasPlayingDuringScrub) player.play(); },
   getTool,
@@ -83,8 +87,13 @@ const timeline = initTimeline(refs, {
 
 refs.toolSelectBtn?.addEventListener('click', ()=> setTool('select'));
 refs.toolBladeBtn?.addEventListener('click', ()=> setTool('blade'));
+refs.actionRippleLeft?.addEventListener('click', ()=> rippleTrim('left'));
+refs.actionRippleRight?.addEventListener('click', ()=> rippleTrim('right'));
+refs.actionSplit?.addEventListener('click', ()=> splitAtPlayhead());
+refs.actionDuplicate?.addEventListener('click', ()=> duplicateSelectedClip());
 
 setTool('select');
+updateActionButtons();
 
 const project = initProject(refs, {
   onProjectLoaded(){
@@ -96,6 +105,7 @@ const project = initProject(refs, {
     timeline.renderClips();
     player.updateScrubRange();
     state.playhead=0; player.updatePlayheadUI(); player.updateProgramAtPlayhead(true);
+    updateActionButtons();
   },
   reloadLibrary: media.reloadLibrary,
   renderLibrary: media.renderLibrary,
@@ -145,6 +155,7 @@ window.addEventListener('keydown', (e)=>{
     state.selectedClipId = null;
     timeline.renderClips();
     player.updateScrubRange();
+    updateActionButtons();
     e.preventDefault();
     return;
   }
@@ -155,6 +166,7 @@ window.addEventListener('keydown', (e)=>{
       const nudge = e.shiftKey ? 1.0 : 0.1;
       selectedClip.start = Math.max(0, selectedClip.start + (dir * nudge));
       timeline.renderClips();
+      updateActionButtons();
     } else {
       const frames = e.shiftKey ? 5 : 1;
       const delta = (frames / (state.fps || 30)) * dir;
@@ -162,6 +174,7 @@ window.addEventListener('keydown', (e)=>{
       state.playhead = Math.max(0, Math.min(maxTime, state.playhead + delta));
       player.updatePlayheadUI();
       player.updateProgramAtPlayhead(true);
+      updateActionButtons();
     }
     e.preventDefault();
     return;
@@ -171,6 +184,7 @@ window.addEventListener('keydown', (e)=>{
     state.playhead = 0;
     player.updatePlayheadUI();
     player.updateProgramAtPlayhead(true);
+    updateActionButtons();
     e.preventDefault();
     return;
   }
@@ -179,6 +193,7 @@ window.addEventListener('keydown', (e)=>{
     state.playhead = projectLength(state);
     player.updatePlayheadUI();
     player.updateProgramAtPlayhead(true);
+    updateActionButtons();
     e.preventDefault();
     return;
   }
@@ -325,9 +340,6 @@ document.getElementById('fitBtn')?.addEventListener('click', ()=>{
   player.updatePlayheadUI();
 });
 
-// Split at playhead (button + keyboard S)
-document.getElementById('splitBtn')?.addEventListener('click', ()=> splitAtPlayhead());
-
 function splitClipAtTime(clipId, time){
   const idx = state.clips.findIndex(x=> x.id === clipId);
   if (idx === -1) return false;
@@ -356,6 +368,7 @@ function splitClipAtTime(clipId, time){
   timeline.renderClips();
   player.updateScrubRange();
   player.updatePlayheadUI();
+  updateActionButtons();
   return true;
 }
 
@@ -365,6 +378,11 @@ function splitAtPlayhead(){
   if (splitClipAtTime(target.id, state.playhead)){
     player.updateProgramAtPlayhead(true);
   }
+}
+
+function getSelectedClip(){
+  if (!state.selectedClipId) return null;
+  return state.clips.find(c=> c.id === state.selectedClipId) || null;
 }
 
 function findClipAtTime(time, preferSelected = false){
@@ -384,6 +402,34 @@ function findClipAtTime(time, preferSelected = false){
     return a.id.localeCompare(b.id);
   });
   return sorted.find(c=> time >= c.start + epsilon && time <= c.start + c.dur - epsilon) || null;
+}
+
+function eligibleRippleClip(direction){
+  const clip = findClipAtTime(state.playhead, true);
+  if (!clip) return null;
+  if (direction === 'left'){
+    const delta = state.playhead - clip.start;
+    return delta > MIN_CLIP_DUR ? clip : null;
+  }
+  const tail = (clip.start + clip.dur) - state.playhead;
+  return tail > MIN_CLIP_DUR ? clip : null;
+}
+
+function updateActionButtons(){
+  const rippleLeftBtn = refs.actionRippleLeft;
+  const rippleRightBtn = refs.actionRippleRight;
+  const splitBtn = refs.actionSplit;
+  const duplicateBtn = refs.actionDuplicate;
+
+  const rippleLeftEligible = !!eligibleRippleClip('left');
+  const rippleRightEligible = !!eligibleRippleClip('right');
+  const splitEligible = !!findClipAtTime(state.playhead, true);
+  const duplicateEligible = !!getSelectedClip();
+
+  if (rippleLeftBtn) rippleLeftBtn.disabled = !rippleLeftEligible;
+  if (rippleRightBtn) rippleRightBtn.disabled = !rippleRightEligible;
+  if (splitBtn) splitBtn.disabled = !splitEligible;
+  if (duplicateBtn) duplicateBtn.disabled = !duplicateEligible;
 }
 
 function rippleShiftTrack(trackId, threshold, delta, skipId){
@@ -434,6 +480,31 @@ function rippleTrim(direction){
   player.updateScrubRange();
   player.updatePlayheadUI();
   player.updateProgramAtPlayhead(true);
+  updateActionButtons();
+}
+
+function duplicateSelectedClip(){
+  const clip = getSelectedClip();
+  if (!clip) return;
+  const idx = state.clips.findIndex(c=> c.id === clip.id);
+  if (idx === -1) return;
+  const clone = {
+    ...clip,
+    id: crypto.randomUUID?.() || Math.random().toString(36).slice(2),
+  };
+  let nextStart = clip.start + clip.dur;
+  if (state.snap){
+    nextStart = snapTime(state, nextStart);
+  }
+  clone.start = Math.max(0, nextStart);
+  clone.out = clone.in + clone.dur;
+  state.clips.splice(idx + 1, 0, clone);
+  state.selectedClipId = clone.id;
+  timeline.renderClips();
+  player.updateScrubRange();
+  player.updatePlayheadUI();
+  player.updateProgramAtPlayhead(true);
+  updateActionButtons();
 }
 
 // Restore persisted sizes

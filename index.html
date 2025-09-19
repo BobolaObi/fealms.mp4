@@ -59,7 +59,13 @@
           <button class="tool-btn" id="toolSelect" title="Selection (V)">Select (V)</button>
           <button class="tool-btn" id="toolBlade" title="Razor (C)">Razor (C)</button>
         </div>
-        <div class="zoom">Zoom <input type="range" id="zoom" min="20" max="400" value="120" /> <span id="zoomVal"></span> px/s <button class="btn" id="fitBtn" style="margin-left:8px">Fit</button> <button class="btn" id="splitBtn" title="Split at playhead (S)" style="margin-left:8px">Split</button></div>
+        <div class="action-group">
+          <button class="action-btn" id="btnRippleLeft" title="Ripple trim start to playhead (Q)">Ripple ⟵ (Q)</button>
+          <button class="action-btn" id="btnRippleRight" title="Ripple trim playhead to end (W)">Ripple ⟶ (W)</button>
+          <button class="action-btn" id="btnSplit" title="Split at playhead (S or Ctrl/Cmd+K)">Split (S)</button>
+          <button class="action-btn" id="btnDuplicate" title="Duplicate selected clip (Alt+Drag)">Duplicate</button>
+        </div>
+        <div class="zoom">Zoom <input type="range" id="zoom" min="20" max="400" value="120" /> <span id="zoomVal"></span> px/s <button class="btn" id="fitBtn" style="margin-left:8px">Fit</button></div>
         <div class="spacer"></div>
         <div>Snap <input type="checkbox" id="snap" checked /></div>
       </div>
