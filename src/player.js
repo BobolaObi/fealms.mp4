@@ -5,16 +5,44 @@ export function initPlayer(refs){
   const { tracksEl, playheadEl, programVideo, programAudio, programTC, playBtn, stopBtn, rewBtn, scrub, fpsSel } = refs;
 
   let raf = null; let lastTs = 0; let lastUiTs = 0;
+  const safePlay = (media) => {
+    if (!media || typeof media.play !== 'function') return;
+    const maybe = media.play();
+    if (maybe && typeof maybe.catch === 'function') maybe.catch(()=>{});
+  };
   function togglePlay(){ state.playing ? pause() : play(); }
-  function play(){ state.playing=true; playBtn.textContent='⏸'; lastTs=performance.now(); tick(); }
-  function pause(){ state.playing=false; playBtn.textContent='▶'; cancelAnimationFrame(raf); programVideo.pause(); programAudio.pause(); }
-  function stop(){ state.playing=false; playBtn.textContent='▶'; cancelAnimationFrame(raf); state.playhead=0; updatePlayheadUI(); updateProgramAtPlayhead(true); programVideo.pause(); programAudio.pause(); }
+
+  function play(){
+    if (state.playing) return;
+    state.playing = true;
+    playBtn.textContent = '⏸';
+    lastTs = 0;
+    lastUiTs = 0;
+    updatePlayheadUI();
+    updateProgramAtPlayhead(true);
+    raf = requestAnimationFrame(tick);
+  }
+
+  function pause(){
+    if (!state.playing && !raf) return;
+    state.playing = false;
+    playBtn.textContent = '▶';
+    if (raf){ cancelAnimationFrame(raf); raf = null; }
+    programVideo.pause();
+    programAudio.pause();
+  }
+
+  function stop(){
+    pause();
+    state.playhead = 0;
+    updatePlayheadUI();
+    updateProgramAtPlayhead(true);
+  }
 
   function tick(ts){
-    raf = requestAnimationFrame(tick);
+    if (!state.playing) return;
     if (!lastTs) lastTs = ts;
     const dt = (ts - lastTs)/1000; lastTs = ts;
-    if (!state.playing) return;
     state.playhead += dt; const end = projectLength(state);
     if (state.playhead > end+0.001) { pause(); return; }
     // Throttle UI updates to ~30fps for smoother playback on slower devices
@@ -23,6 +51,7 @@ export function initPlayer(refs){
       updatePlayheadUI();
       updateProgramAtPlayhead(false);
     }
+    if (state.playing){ raf = requestAnimationFrame(tick); }
   }
 
   function updatePlayheadUI(){
@@ -89,10 +118,10 @@ export function initPlayer(refs){
       } else {
         const pc = document.getElementById('programCanvas'); if (pc) pc.remove();
         if (forceSrc || currentProgClipId!==vclip.id || currentProgKind!=='video'){
-          programVideo.src = m.url; programVideo.currentTime = offset; currentProgClipId=vclip.id; currentProgKind='video'; if (state.playing) programVideo.play();
+          programVideo.src = m.url; programVideo.currentTime = offset; currentProgClipId=vclip.id; currentProgKind='video'; if (state.playing) safePlay(programVideo);
         } else {
           if (Math.abs(programVideo.currentTime - offset) > 0.08) { programVideo.currentTime = offset; }
-          if (state.playing && programVideo.paused) programVideo.play();
+          if (state.playing && programVideo.paused) safePlay(programVideo);
         }
         return;
       }
@@ -104,10 +133,10 @@ export function initPlayer(refs){
       programVideo.pause(); programVideo.removeAttribute('src'); programVideo.load();
       const pc = document.getElementById('programCanvas'); if (pc) pc.remove();
       if (forceSrc || currentProgClipId!==aclip.id || currentProgKind!=='audio'){
-        programAudio.src = m.url; programAudio.currentTime = offset; currentProgClipId=aclip.id; currentProgKind='audio'; if (state.playing) programAudio.play();
+        programAudio.src = m.url; programAudio.currentTime = offset; currentProgClipId=aclip.id; currentProgKind='audio'; if (state.playing) safePlay(programAudio);
       } else {
         if (Math.abs(programAudio.currentTime - offset) > 0.08) { programAudio.currentTime = offset; }
-        if (state.playing && programAudio.paused) programAudio.play();
+        if (state.playing && programAudio.paused) safePlay(programAudio);
       }
     }
   }

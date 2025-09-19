@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { projectLength, snapTime } from './utils.js';
+import { projectLength, snapTime, clamp } from './utils.js';
 import { initMedia } from './media.js';
 import { initTimeline } from './timeline.js';
 import { initPlayer } from './player.js';
@@ -34,6 +34,18 @@ const refs = {
   actionRippleRight: $('#btnRippleRight'),
   actionSplit: $('#btnSplit'),
   actionDuplicate: $('#btnDuplicate'),
+  inspector: $('#clipInspector'),
+  inspectorForm: $('#inspectorForm'),
+  inspectorName: $('#inspectorName'),
+  inspectorType: $('#inspectorType'),
+  inspectorMeta: $('#inspectorMeta'),
+  inspectorTrack: $('#inspectorTrack'),
+  inspectorStart: $('#inspectorStart'),
+  inspectorDuration: $('#inspectorDuration'),
+  inspectorIn: $('#inspectorIn'),
+  inspectorOut: $('#inspectorOut'),
+  inspectorReset: $('#inspectorReset'),
+  inspectorNote: $('#inspectorNote'),
   // project
   saveBtn: $('#saveBtn'),
   openBtn: $('#openBtn'),
@@ -49,6 +61,20 @@ const refs = {
 const appEl = document.getElementById('app');
 const cheatSheetEl = refs.cheatSheet;
 const cheatCloseBtn = refs.cheatClose;
+const inspectorEls = {
+  root: refs.inspector,
+  form: refs.inspectorForm,
+  name: refs.inspectorName,
+  type: refs.inspectorType,
+  meta: refs.inspectorMeta,
+  track: refs.inspectorTrack,
+  start: refs.inspectorStart,
+  duration: refs.inspectorDuration,
+  in: refs.inspectorIn,
+  out: refs.inspectorOut,
+  reset: refs.inspectorReset,
+  note: refs.inspectorNote,
+};
 
 // Global drag/drop prevention to avoid navigation
 window.addEventListener('dragover', e=> e.preventDefault());
@@ -70,11 +96,11 @@ const getTool = () => currentTool;
 
 let wasPlayingDuringScrub = false;
 const timeline = initTimeline(refs, {
-  onClipsChanged(){ player.updateScrubRange(); updateActionButtons(); },
-  onSelect(){ updateActionButtons(); },
-  onPlayheadSet(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(true); updateActionButtons(); },
-  onRedrawRequest(){ player.updatePlayheadUI(); updateActionButtons(); },
-  onScrub(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(false); updateActionButtons(); },
+  onClipsChanged(){ player.updateScrubRange(); updateActionButtons(); updateInspector(); },
+  onSelect(){ updateActionButtons(); updateInspector(); },
+  onPlayheadSet(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(true); updateActionButtons(); updateInspector(); },
+  onRedrawRequest(){ player.updatePlayheadUI(); updateActionButtons(); updateInspector(); },
+  onScrub(){ player.updatePlayheadUI(); player.updateProgramAtPlayhead(false); updateActionButtons(); updateInspector(); },
   onScrubStart(){ wasPlayingDuringScrub = state.playing; if (wasPlayingDuringScrub) player.pause(); },
   onScrubEnd(){ if (wasPlayingDuringScrub) player.play(); },
   getTool,
@@ -92,8 +118,24 @@ refs.actionRippleRight?.addEventListener('click', ()=> rippleTrim('right'));
 refs.actionSplit?.addEventListener('click', ()=> splitAtPlayhead());
 refs.actionDuplicate?.addEventListener('click', ()=> duplicateSelectedClip());
 
+const inspectorInputs = [
+  inspectorEls.track,
+  inspectorEls.start,
+  inspectorEls.duration,
+  inspectorEls.in,
+  inspectorEls.out,
+].filter(Boolean);
+inspectorInputs.forEach(input => {
+  input.addEventListener('change', ()=> commitInspectorChanges());
+  if (input.tagName === 'INPUT'){
+    input.addEventListener('blur', ()=> commitInspectorChanges());
+  }
+});
+inspectorEls.reset?.addEventListener('click', ()=> resetInspectorInOut());
+
 setTool('select');
 updateActionButtons();
+updateInspector();
 
 const project = initProject(refs, {
   onProjectLoaded(){
@@ -106,6 +148,7 @@ const project = initProject(refs, {
     player.updateScrubRange();
     state.playhead=0; player.updatePlayheadUI(); player.updateProgramAtPlayhead(true);
     updateActionButtons();
+    updateInspector();
   },
   reloadLibrary: media.reloadLibrary,
   renderLibrary: media.renderLibrary,
@@ -156,6 +199,7 @@ window.addEventListener('keydown', (e)=>{
     timeline.renderClips();
     player.updateScrubRange();
     updateActionButtons();
+    updateInspector();
     e.preventDefault();
     return;
   }
@@ -167,6 +211,7 @@ window.addEventListener('keydown', (e)=>{
       selectedClip.start = Math.max(0, selectedClip.start + (dir * nudge));
       timeline.renderClips();
       updateActionButtons();
+      updateInspector();
     } else {
       const frames = e.shiftKey ? 5 : 1;
       const delta = (frames / (state.fps || 30)) * dir;
@@ -175,6 +220,7 @@ window.addEventListener('keydown', (e)=>{
       player.updatePlayheadUI();
       player.updateProgramAtPlayhead(true);
       updateActionButtons();
+      updateInspector();
     }
     e.preventDefault();
     return;
@@ -185,6 +231,7 @@ window.addEventListener('keydown', (e)=>{
     player.updatePlayheadUI();
     player.updateProgramAtPlayhead(true);
     updateActionButtons();
+    updateInspector();
     e.preventDefault();
     return;
   }
@@ -194,6 +241,7 @@ window.addEventListener('keydown', (e)=>{
     player.updatePlayheadUI();
     player.updateProgramAtPlayhead(true);
     updateActionButtons();
+    updateInspector();
     e.preventDefault();
     return;
   }
@@ -369,6 +417,7 @@ function splitClipAtTime(clipId, time){
   player.updateScrubRange();
   player.updatePlayheadUI();
   updateActionButtons();
+  updateInspector();
   return true;
 }
 
@@ -413,6 +462,67 @@ function eligibleRippleClip(direction){
   }
   const tail = (clip.start + clip.dur) - state.playhead;
   return tail > MIN_CLIP_DUR ? clip : null;
+}
+
+const formatSeconds = (value) => {
+  if (!Number.isFinite(value)) return '0.00';
+  return (Math.round(value * 100) / 100).toFixed(2);
+};
+
+function setInspectorField(el, value){
+  if (!el) return;
+  if (document.activeElement === el) return;
+  const formatted = formatSeconds(value);
+  if (el.value !== formatted) el.value = formatted;
+}
+
+function updateInspector(){
+  const root = inspectorEls.root;
+  if (!root) return;
+  const clip = getSelectedClip();
+  if (!clip){
+    root.setAttribute('data-empty', '1');
+    if (inspectorEls.note){ inspectorEls.note.textContent = 'Min duration 0.05s.'; }
+    return;
+  }
+  root.setAttribute('data-empty', '0');
+
+  inspectorEls.name && (inspectorEls.name.textContent = clip.name || 'Untitled clip');
+  inspectorEls.type && (inspectorEls.type.textContent = (clip.type || 'clip').toUpperCase());
+  inspectorEls.meta && (inspectorEls.meta.textContent = `End ${formatSeconds(clip.start + clip.dur)}s`);
+
+  const media = state.media.find(m=> m.id === clip.mediaId);
+  const mediaDur = media?.duration ?? (clip.out ?? (clip.in + clip.dur));
+  if (inspectorEls.note){
+    if (media){
+      inspectorEls.note.textContent = `Source “${media.name}” • ${formatSeconds(mediaDur)}s`;
+    } else {
+      inspectorEls.note.textContent = `Source length ${formatSeconds(mediaDur)}s`;
+    }
+  }
+
+  const select = inspectorEls.track;
+  if (select){
+    const expectedKind = clip.type === 'audio' ? 'audio' : 'video';
+    const tracks = state.tracks.filter(t=> t.kind === expectedKind);
+    const needsRebuild = tracks.length !== select.options.length || !tracks.some(t=> t.id === select.value);
+    if (needsRebuild){
+      select.innerHTML = '';
+      tracks.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.id;
+        select.appendChild(opt);
+      });
+    }
+    if (select.value !== clip.track) select.value = clip.track;
+    select.disabled = tracks.length === 0;
+  }
+
+  setInspectorField(inspectorEls.start, clip.start);
+  setInspectorField(inspectorEls.duration, clip.dur);
+  setInspectorField(inspectorEls.in, clip.in ?? 0);
+  setInspectorField(inspectorEls.out, clip.out ?? (clip.in + clip.dur));
 }
 
 function updateActionButtons(){
@@ -481,6 +591,7 @@ function rippleTrim(direction){
   player.updatePlayheadUI();
   player.updateProgramAtPlayhead(true);
   updateActionButtons();
+  updateInspector();
 }
 
 function duplicateSelectedClip(){
@@ -505,6 +616,75 @@ function duplicateSelectedClip(){
   player.updatePlayheadUI();
   player.updateProgramAtPlayhead(true);
   updateActionButtons();
+  updateInspector();
+}
+
+function commitInspectorChanges(){
+  const clip = getSelectedClip();
+  if (!clip) return;
+
+  const expectedKind = clip.type === 'audio' ? 'audio' : 'video';
+  const trackSelect = inspectorEls.track;
+  const candidateTrackId = trackSelect?.value;
+  const track = state.tracks.find(t=> t.id === candidateTrackId && t.kind === expectedKind);
+
+  const parse = (inputEl, fallback) => {
+    if (!inputEl) return fallback;
+    const val = parseFloat(inputEl.value);
+    return Number.isFinite(val) ? val : fallback;
+  };
+
+  let start = parse(inspectorEls.start, clip.start);
+  let duration = parse(inspectorEls.duration, clip.dur);
+  let sourceIn = parse(inspectorEls.in, clip.in ?? 0);
+  let sourceOut = parse(inspectorEls.out, clip.out ?? (clip.in + clip.dur));
+
+  start = Math.max(0, start);
+  if (state.snap) start = snapTime(state, start);
+
+  duration = Math.max(MIN_CLIP_DUR, duration);
+
+  const media = state.media.find(m=> m.id === clip.mediaId);
+  const mediaDur = media?.duration ?? Math.max(sourceOut, clip.in + clip.dur);
+
+  sourceIn = clamp(sourceIn, 0, Math.max(0, mediaDur - MIN_CLIP_DUR));
+  sourceOut = clamp(sourceOut, sourceIn + MIN_CLIP_DUR, mediaDur);
+
+  duration = clamp(duration, MIN_CLIP_DUR, sourceOut - sourceIn);
+  sourceOut = sourceIn + duration;
+
+  clip.start = start;
+  clip.dur = duration;
+  clip.in = sourceIn;
+  clip.out = sourceOut;
+  if (track) clip.track = track.id;
+
+  timeline.renderClips();
+  player.updateScrubRange();
+  player.updatePlayheadUI();
+  player.updateProgramAtPlayhead(true);
+  updateActionButtons();
+  updateInspector();
+}
+
+function resetInspectorInOut(){
+  const clip = getSelectedClip();
+  if (!clip) return;
+  const media = state.media.find(m=> m.id === clip.mediaId);
+  const defaultIn = media?.in ?? 0;
+  const defaultOut = media?.out ?? media?.duration ?? (clip.in + clip.dur);
+  const cleanOut = Math.max(defaultIn + MIN_CLIP_DUR, defaultOut);
+
+  clip.in = defaultIn;
+  clip.out = cleanOut;
+  clip.dur = clip.out - clip.in;
+
+  timeline.renderClips();
+  player.updateScrubRange();
+  player.updatePlayheadUI();
+  player.updateProgramAtPlayhead(true);
+  updateActionButtons();
+  updateInspector();
 }
 
 // Restore persisted sizes
@@ -551,4 +731,6 @@ function addTrack(kind){
   timeline.renderTracks();
   timeline.renderClips();
   player.updatePlayheadUI();
+  updateActionButtons();
+  updateInspector();
 }
